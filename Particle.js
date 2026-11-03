@@ -1,11 +1,19 @@
 class Particle {
-  constructor() {
-    this.pos = createVector(width/2, height/3);
+  constructor(size = 50, bounds = null) {
+    this.pos = createVector(width/2, height/2);
     this.vel = createVector(0, 0);
     this.acc = createVector(0, 0);
 
-    this.c = color(0);
-    this.w = 50;
+    this.c = color(16);
+    this.w = size;
+
+    // 돌이 움직일 수 있는 영역 (기본값은 캔버스 전체)
+    this.bounds = bounds || {
+      minX: 0,
+      maxX: width,
+      minY: 0,
+      maxY: height
+    };
 
     // 벽에 부딪혔을 때 남는 속도 비율 (1 = 영원히 튕김, 0 = 완전히 멈춤)
     this.bounce = 0.85;
@@ -34,12 +42,15 @@ class Particle {
   checkEdge() {
     // 공의 반지름
     const r = this.w / 2;
+    const b = this.bounds;
+    const cx = (b.minX + b.maxX) / 2;
+    const cy = (b.minY + b.maxY) / 2;
 
-    // 캔버스가 공보다 작아도 최소한 중앙에 머물도록 보정
-    const minX = Math.min(r, width / 2);
-    const maxX = Math.max(width - r, width / 2);
-    const minY = Math.min(r, height / 2);
-    const maxY = Math.max(height - r, height / 2);
+    // 영역이 공보다 작아도 최소한 중앙에 머물도록 보정
+    const minX = Math.min(b.minX + r, cx);
+    const maxX = Math.max(b.maxX - r, cx);
+    const minY = Math.min(b.minY + r, cy);
+    const maxY = Math.max(b.maxY - r, cy);
 
     // 좌우 벽
     if (this.pos.x < minX) {
@@ -66,7 +77,19 @@ class Particle {
 
 
   show() {
+    const r = this.w / 2;
+
+    // 판 위에 드리우는 그림자
+    noStroke();
+    fill(0, 0, 0, 55);
+    circle(this.pos.x + r * 0.12, this.pos.y + r * 0.16, this.w);
+
+    // 돌
     fill(this.c);
     circle(this.pos.x, this.pos.y, this.w);
+
+    // 광택
+    fill(255, 255, 255, 55);
+    ellipse(this.pos.x - r * 0.3, this.pos.y - r * 0.32, r * 0.85, r * 0.6);
   }
 }
