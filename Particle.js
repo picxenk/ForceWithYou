@@ -1,13 +1,14 @@
 class Particle {
-  constructor(size = 50, bounds = null) {
-    this.pos = createVector(width/2, height/2);
+  constructor(size = 50, bounds = null, shade = 16) {
+    this.pos = createVector(width / 2, height / 2);
     this.vel = createVector(0, 0);
     this.acc = createVector(0, 0);
 
-    this.c = color(16);
     this.w = size;
+    this.shade = shade;      // 돌의 밝기 (0 = 흑돌, 255 = 백돌)
+    this.c = color(shade);
 
-    // 돌이 움직일 수 있는 영역 (기본값은 캔버스 전체)
+    // 돌이 놓인 판의 영역 (기본값은 캔버스 전체)
     this.bounds = bounds || {
       minX: 0,
       maxX: width,
@@ -15,8 +16,8 @@ class Particle {
       maxY: height
     };
 
-    // 벽에 부딪혔을 때 남는 속도 비율 (1 = 영원히 튕김, 0 = 완전히 멈춤)
-    this.bounce = 0.85;
+    this.alive = true;       // 판 밖으로 나가면 false
+    this.alpha = 1;          // 나가면서 서서히 사라지는 정도
   }
 
   addForce(aForce) {
@@ -24,72 +25,71 @@ class Particle {
   }
 
   update() {
+    if (!this.alive) return;
+
     this.vel.add(this.acc);
 
-    // 너무 빨라져서 한 프레임에 벽을 뚫고 나가는 것을 방지
+    // 너무 빨라져서 판을 한 번에 가로지르는 것을 방지
     const maxSpeed = 20;
     if (this.vel.mag() > maxSpeed) {
       this.vel.setMag(maxSpeed);
     }
 
+    // 판과의 마찰로 서서히 멈춤
+    this.vel.mult(0.96);
+    if (this.vel.mag() < 0.05) {
+      this.vel.set(0, 0);
+    }
+
     this.pos.add(this.vel);
 
     this.acc.set(0, 0);
-    this.checkEdge();
+    this.checkOffBoard();
   }
 
-
-  checkEdge() {
-    // 공의 반지름
-    const r = this.w / 2;
+  // 판 밖으로 나가면 서서히 사라지고, 다 사라지면 없어짐
+  checkOffBoard() {
     const b = this.bounds;
-    const cx = (b.minX + b.maxX) / 2;
-    const cy = (b.minY + b.maxY) / 2;
 
-    // 영역이 공보다 작아도 최소한 중앙에 머물도록 보정
-    const minX = Math.min(b.minX + r, cx);
-    const maxX = Math.max(b.maxX - r, cx);
-    const minY = Math.min(b.minY + r, cy);
-    const maxY = Math.max(b.maxY - r, cy);
+    // 판 밖으로 나간 거리 (안에 있으면 0)
+    const out = Math.max(
+      b.minX - this.pos.x,
+      this.pos.x - b.maxX,
+      b.minY - this.pos.y,
+      this.pos.y - b.maxY,
+      0
+    );
 
-    // 좌우 벽
-    if (this.pos.x < minX) {
-      this.pos.x = minX;
-      if (this.vel.x < 0) this.vel.x *= -this.bounce;
-    } else if (this.pos.x > maxX) {
-      this.pos.x = maxX;
-      if (this.vel.x > 0) this.vel.x *= -this.bounce;
+    if (out <= 0) {
+      this.alpha = 1;
+      return;
     }
 
-    // 위아래 벽
-    if (this.pos.y < minY) {
-      this.pos.y = minY;
-      if (this.vel.y < 0) this.vel.y *= -this.bounce;
-    } else if (this.pos.y > maxY) {
-      this.pos.y = maxY;
-      if (this.vel.y > 0) this.vel.y *= -this.bounce;
-    }
+    this.alpha = 1 - out / this.w;
 
-    // 아주 느린 움직임은 멈춰서 미세한 떨림을 방지
-    if (Math.abs(this.vel.x) < 0.05) this.vel.x = 0;
-    if (Math.abs(this.vel.y) < 0.05) this.vel.y = 0;
+    if (this.alpha <= 0) {
+      this.alpha = 0;
+      this.alive = false;
+    }
   }
-
 
   show() {
+    if (!this.alive) return;
+
     const r = this.w / 2;
+    const a = 255 * this.alpha;
 
     // 판 위에 드리우는 그림자
     noStroke();
-    fill(0, 0, 0, 55);
+    fill(0, 0, 0, a * 0.22);
     circle(this.pos.x + r * 0.12, this.pos.y + r * 0.16, this.w);
 
     // 돌
-    fill(this.c);
+    fill(red(this.c), green(this.c), blue(this.c), a);
     circle(this.pos.x, this.pos.y, this.w);
 
-    // 광택
-    fill(255, 255, 255, 55);
+    // 광택 (흑돌은 흰 하이라이트, 백돌은 밝은 하이라이트)
+    fill(255, 255, 255, this.shade < 128 ? a * 0.22 : a * 0.55);
     ellipse(this.pos.x - r * 0.3, this.pos.y - r * 0.32, r * 0.85, r * 0.6);
   }
 }
